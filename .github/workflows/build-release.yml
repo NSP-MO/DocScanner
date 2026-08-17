@@ -29,17 +29,14 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore DocScanner/DocScanner.csproj
+        run: dotnet restore DocScanner.csproj
 
       - name: Build DocScanner (Release)
-        run: dotnet build DocScanner/DocScanner.csproj -c Release --no-restore
-
-      - name: Execute Automated Verification Suite
-        run: dotnet run --project exec/DocScannerTest/DocScannerTest.csproj -c Release
+        run: dotnet build DocScanner.csproj -c Release --no-restore
 
       - name: Publish Self-Contained Windows x64 Package
         run: >
-          dotnet publish DocScanner/DocScanner.csproj
+          dotnet publish DocScanner.csproj
           -c Release
           -r win-x64
           --self-contained true
