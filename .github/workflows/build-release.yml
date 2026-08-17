@@ -1,0 +1,79 @@
+name: Build & Release DocScanner
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Self-Contained Installer & Portable Package
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore DocScanner/DocScanner.csproj
+
+      - name: Build DocScanner (Release)
+        run: dotnet build DocScanner/DocScanner.csproj -c Release --no-restore
+
+      - name: Execute Automated Verification Suite
+        run: dotnet run --project exec/DocScannerTest/DocScannerTest.csproj -c Release
+
+      - name: Publish Self-Contained Windows x64 Package
+        run: >
+          dotnet publish DocScanner/DocScanner.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -o ./publish
+          /p:PublishSingleFile=false
+          /p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Setup Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile Native Windows Setup Installer (.exe)
+        run: & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer/DocScanner_Setup.iss
+
+      - name: Create Portable Zip Package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ./publish/* -DestinationPath ./installer/output/DocScanner_Portable_v0.4.0_x64.zip -Force
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocScanner-v0.4.0-Windows-x64
+          path: installer/output/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/output/*
+          name: DocScanner ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
