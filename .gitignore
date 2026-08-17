@@ -1,0 +1,47 @@
+## Build and compilation outputs
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Pp]ublish/
+Generated\ Files/
+[Aa]pp[Pp]ackages/
+_UpgradeReport_Files/
+
+## Visual Studio & IDE files
+.vs/
+*.user
+*.userprefs
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+## Visual Studio Code & JetBrains Rider
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+
+## Testing & Diagnostic files
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+*.coveragexml
+*.log
+
+## NuGet packages
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.assets.json
+
+## Temporary & OS artifacts
+*.tmp
+*~
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+.DS_Store

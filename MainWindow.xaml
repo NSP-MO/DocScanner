@@ -1,0 +1,700 @@
+<Window x:Class="DocScanner.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DocScanner"
+        xmlns:vm="clr-namespace:DocScanner.ViewModels"
+        xmlns:controls="clr-namespace:DocScanner.Controls"
+        xmlns:models="clr-namespace:DocScanner.Models"
+        mc:Ignorable="d"
+        Title="DocScanner - Document Scanning &amp; Contrast Enhancement"
+        Height="800" Width="1240"
+        MinHeight="650" MinWidth="980"
+        Background="{StaticResource BrushBgApp}"
+        Foreground="{StaticResource BrushTextPrimary}"
+        WindowStartupLocation="CenterScreen"
+        AllowDrop="True"
+        Drop="Window_Drop"
+        KeyDown="Window_KeyDown">
+
+    <Window.DataContext>
+        <vm:MainViewModel x:Name="ViewModel" />
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Top Toolbar -->
+            <RowDefinition Height="*" />    <!-- Main Workspace -->
+            <RowDefinition Height="Auto" /> <!-- Bottom Status Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- TOP TOOLBAR -->
+        <Border Grid.Row="0"
+                Background="{StaticResource BrushBgHeader}"
+                BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="0,0,0,1"
+                Padding="10,8">
+            <DockPanel LastChildFill="False">
+                <!-- Left: File Operations -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button Style="{StaticResource ModernButton}"
+                            Command="{Binding AddImagesCommand}"
+                            ToolTip="Open document photos or scans from disk"
+                            Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📁 Import Images" FontWeight="Medium" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource ModernButton}"
+                            Command="{Binding AddFromClipboardCommand}"
+                            ToolTip="Paste image from clipboard (Ctrl+V)"
+                            Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📋 Paste Clipboard" />
+                        </StackPanel>
+                    </Button>
+
+                    <Separator Style="{x:Null}" Width="1" Background="{StaticResource BrushBorder}" Margin="6,2,12,2" />
+
+                    <!-- Middle: Geometric / Crop Tools -->
+                    <ToggleButton Style="{x:Null}"
+                                  IsChecked="{Binding IsCropMode}"
+                                  IsEnabled="{Binding HasPages}"
+                                  Cursor="Hand"
+                                  Padding="10,6"
+                                  Margin="0,0,6,0">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="bgBorder"
+                                        Background="{StaticResource BrushBgCard}"
+                                        BorderBrush="{StaticResource BrushBorder}"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        Padding="{TemplateBinding Padding}">
+                                    <TextBlock x:Name="txt" Text="📐 Crop / Perspective" Foreground="{StaticResource BrushTextPrimary}" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="bgBorder" Property="Background" Value="{StaticResource BrushBgCardSelected}" />
+                                        <Setter TargetName="bgBorder" Property="BorderBrush" Value="{StaticResource BrushAccent}" />
+                                        <Setter TargetName="txt" Property="FontWeight" Value="SemiBold" />
+                                        <Setter TargetName="txt" Property="Foreground" Value="White" />
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bgBorder" Property="BorderBrush" Value="{StaticResource BrushBorderLight}" />
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="bgBorder" Property="Opacity" Value="0.4" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+
+                    <Button Style="{StaticResource ModernButton}"
+                            Command="{Binding AutoDetectCornersCommand}"
+                            IsEnabled="{Binding HasPages}"
+                            ToolTip="Automatically detect 4 document corners"
+                            Margin="0,0,6,0">
+                        <TextBlock Text="✨ Auto-Detect" />
+                    </Button>
+
+                    <Button Style="{StaticResource ModernButton}"
+                            Command="{Binding ResetCropCommand}"
+                            IsEnabled="{Binding HasPages}"
+                            ToolTip="Reset crop to full image bounds"
+                            Margin="0,0,6,0">
+                        <TextBlock Text="🔄 Reset Crop" />
+                    </Button>
+
+                    <Button Style="{StaticResource ModernButton}"
+                            Command="{Binding RotateLeftCommand}"
+                            IsEnabled="{Binding HasPages}"
+                            ToolTip="Rotate 90° counter-clockwise"
+                            Margin="0,0,4,0">
+                        <TextBlock Text="⤹ Rotate L" />
+                    </Button>
+
+                    <Button Style="{StaticResource ModernButton}"
+                            Command="{Binding RotateRightCommand}"
+                            IsEnabled="{Binding HasPages}"
+                            ToolTip="Rotate 90° clockwise"
+                            Margin="0,0,6,0">
+                        <TextBlock Text="⤸ Rotate R" />
+                    </Button>
+
+                    <ToggleButton Style="{x:Null}"
+                                  IsChecked="{Binding IsSplitView}"
+                                  IsEnabled="{Binding HasPages}"
+                                  Cursor="Hand"
+                                  Padding="10,6"
+                                  Margin="0,0,6,0"
+                                  ToolTip="Toggle side-by-side comparison with original warped document">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="bgBorder"
+                                        Background="{StaticResource BrushBgCard}"
+                                        BorderBrush="{StaticResource BrushBorder}"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        Padding="{TemplateBinding Padding}">
+                                    <TextBlock x:Name="txt" Text="◫ Split View" Foreground="{StaticResource BrushTextSecondary}" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="bgBorder" Property="Background" Value="{StaticResource BrushBgCardSelected}" />
+                                        <Setter TargetName="bgBorder" Property="BorderBrush" Value="{StaticResource BrushAccent}" />
+                                        <Setter TargetName="txt" Property="Foreground" Value="White" />
+                                        <Setter TargetName="txt" Property="FontWeight" Value="SemiBold" />
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bgBorder" Property="BorderBrush" Value="{StaticResource BrushBorderLight}" />
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="bgBorder" Property="Opacity" Value="0.4" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+                </StackPanel>
+
+                <!-- Right: Export Operations -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Style="{StaticResource ModernButton}"
+                            Command="{Binding ExportCurrentPageImageAsyncCommand}"
+                            IsEnabled="{Binding HasPages}"
+                            ToolTip="Save current enhanced page as PNG/JPEG image"
+                            Margin="0,0,8,0">
+                        <TextBlock Text="💾 Save Image..." />
+                    </Button>
+
+                    <Button Style="{StaticResource AccentButton}"
+                            Command="{Binding ExportPdfAsyncCommand}"
+                            IsEnabled="{Binding HasPages}"
+                            ToolTip="Compile all pages into a multi-page PDF document"
+                            Padding="14,6">
+                        <TextBlock Text="📄 Export PDF" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- MAIN WORKSPACE -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" MinWidth="160" MaxWidth="350" /> <!-- Left Thumbnail Sidebar -->
+                <ColumnDefinition Width="*" />                                    <!-- Center Canvas -->
+                <ColumnDefinition Width="290" MinWidth="240" MaxWidth="400" /> <!-- Right Filter Panel -->
+            </Grid.ColumnDefinitions>
+
+            <!-- 1. LEFT SIDEBAR: PAGES LIST -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource BrushBgSidebar}"
+                    BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Sidebar Header -->
+                    <Border Grid.Row="0"
+                            Background="{StaticResource BrushBgHeader}"
+                            BorderBrush="{StaticResource BrushBorder}"
+                            BorderThickness="0,0,0,1"
+                            Padding="12,8">
+                        <DockPanel>
+                            <TextBlock Text="PAGES"
+                                       FontWeight="SemiBold"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Pages.Count, StringFormat='({0})'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushAccent}"
+                                       Margin="6,0,0,0"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Thumbnails ListBox -->
+                    <ListBox Grid.Row="1"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ItemsSource="{Binding Pages}"
+                             SelectedItem="{Binding SelectedPage}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             Padding="8">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Padding" Value="4" />
+                                <Setter Property="Margin" Value="0,0,0,8" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="itemBorder"
+                                                    Background="{StaticResource BrushBgCard}"
+                                                    BorderBrush="{StaticResource BrushBorder}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="6">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="itemBorder" Property="Background" Value="{StaticResource BrushBgCardHover}" />
+                                                    <Setter TargetName="itemBorder" Property="BorderBrush" Value="{StaticResource BrushBorderLight}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="itemBorder" Property="Background" Value="{StaticResource BrushBgCardSelected}" />
+                                                    <Setter TargetName="itemBorder" Property="BorderBrush" Value="{StaticResource BrushAccent}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:ScannedPage}">
+                                <StackPanel>
+                                    <Border Background="#111111"
+                                            CornerRadius="2"
+                                            Height="140"
+                                            HorizontalAlignment="Center">
+                                        <Image Source="{Binding ThumbnailBitmap}"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </Border>
+                                    <DockPanel Margin="0,6,0,0">
+                                        <TextBlock Text="{Binding PageNumber, StringFormat='Page {0}'}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource BrushTextPrimary}" />
+                                        <TextBlock Text="{Binding FilterType}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource BrushTextMuted}"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Sidebar Bottom Toolbar -->
+                    <Border Grid.Row="2"
+                            Background="{StaticResource BrushBgHeader}"
+                            BorderBrush="{StaticResource BrushBorder}"
+                            BorderThickness="0,1,0,0"
+                            Padding="8">
+                        <UniformGrid Columns="3">
+                            <Button Style="{StaticResource ModernButton}"
+                                    Command="{Binding MovePageUpCommand}"
+                                    IsEnabled="{Binding HasSelectedPage}"
+                                    ToolTip="Move page up"
+                                    Margin="0,0,4,0">
+                                <TextBlock Text="▲ Up" FontSize="11" />
+                            </Button>
+                            <Button Style="{StaticResource ModernButton}"
+                                    Command="{Binding MovePageDownCommand}"
+                                    IsEnabled="{Binding HasSelectedPage}"
+                                    ToolTip="Move page down"
+                                    Margin="2,0,2,0">
+                                <TextBlock Text="▼ Down" FontSize="11" />
+                            </Button>
+                            <Button Style="{StaticResource ModernButton}"
+                                    Command="{Binding DeletePageCommand}"
+                                    IsEnabled="{Binding HasSelectedPage}"
+                                    ToolTip="Delete selected page"
+                                    Margin="4,0,0,0">
+                                <TextBlock Text="✕ Del" FontSize="11" Foreground="#ff6b6b" />
+                            </Button>
+                        </UniformGrid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- 2. CENTER CANVAS WORKSPACE -->
+            <Grid Grid.Column="1" Background="{StaticResource BrushBgApp}">
+                <!-- Empty State Placeholder -->
+                <Border Visibility="{Binding HasPages, Converter={StaticResource InverseBoolToVisConverter}}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Padding="30">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="📄"
+                                   FontSize="54"
+                                   HorizontalAlignment="Center"
+                                   Opacity="0.4"
+                                   Margin="0,0,0,16" />
+                        <TextBlock Text="No Document Loaded"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="Drag and drop document photos here, or click Import Images"
+                                   FontSize="13"
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,20" />
+                        <Button Style="{StaticResource AccentButton}"
+                                Command="{Binding AddImagesCommand}"
+                                HorizontalAlignment="Center"
+                                Padding="16,8">
+                            <TextBlock Text="Select Document Photos" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- Active Page View -->
+                <Grid Visibility="{Binding HasPages, Converter={StaticResource BoolToVisConverter}}">
+                    <!-- A. CROP / PERSPECTIVE MODE -->
+                    <Grid Visibility="{Binding IsCropMode, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Instruction Ribbon -->
+                        <Border Grid.Row="0"
+                                Background="#103b59"
+                                BorderBrush="{StaticResource BrushAccent}"
+                                BorderThickness="0,0,0,1"
+                                Padding="12,6">
+                            <DockPanel>
+                                <TextBlock Text="📐 Interactive Perspective Crop: Drag the 4 corner handles to tightly frame your document."
+                                           Foreground="White"
+                                           FontSize="12"
+                                           VerticalAlignment="Center" />
+                                <Button Style="{StaticResource ModernButton}"
+                                        Command="{Binding ToggleCropModeCommand}"
+                                        HorizontalAlignment="Right"
+                                        Padding="10,3">
+                                    <TextBlock Text="Done (Apply Crop)" FontWeight="SemiBold" />
+                                </Button>
+                            </DockPanel>
+                        </Border>
+
+                        <controls:InteractiveCropCanvas x:Name="CropCanvas"
+                                                       Grid.Row="1"
+                                                       Margin="16"
+                                                       SourceImage="{Binding SelectedPage.SourceBitmap}"
+                                                       Corners="{Binding SelectedPage.Corners, Mode=TwoWay}"
+                                                       ImagePixelWidth="{Binding SelectedPage.ImageWidth, FallbackValue=100}"
+                                                       ImagePixelHeight="{Binding SelectedPage.ImageHeight, FallbackValue=100}"
+                                                       CornersManipulated="CropCanvas_CornersManipulated" />
+                    </Grid>
+
+                    <!-- B. ENHANCED PREVIEW MODE -->
+                    <Grid Visibility="{Binding IsCropMode, Converter={StaticResource InverseBoolToVisConverter}}">
+                        <!-- Single View -->
+                        <Grid Visibility="{Binding IsSplitView, Converter={StaticResource InverseBoolToVisConverter}}"
+                              Margin="16">
+                            <Border Background="#111111"
+                                    BorderBrush="{StaticResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                <Image Source="{Binding SelectedPage.ProcessedBitmap}"
+                                       Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Border>
+                        </Grid>
+
+                        <!-- Split / Side-by-Side View -->
+                        <Grid Visibility="{Binding IsSplitView, Converter={StaticResource BoolToVisConverter}}"
+                              Margin="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Original Source -->
+                            <Border Grid.Column="0"
+                                    Background="#111111"
+                                    BorderBrush="{StaticResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                <Grid>
+                                    <Image Source="{Binding SelectedPage.SourceBitmap}"
+                                           Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <Border Background="#cc000000"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            CornerRadius="0,0,4,0"
+                                            Padding="8,4">
+                                        <TextBlock Text="Original Photo" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <GridSplitter Grid.Column="1"
+                                          Width="4"
+                                          HorizontalAlignment="Center"
+                                          Background="{StaticResource BrushBorder}" />
+
+                            <!-- Right: Enhanced Output -->
+                            <Border Grid.Column="2"
+                                    Background="#111111"
+                                    BorderBrush="{StaticResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                <Grid>
+                                    <Image Source="{Binding SelectedPage.ProcessedBitmap}"
+                                           Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <Border Background="#cc000000"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            CornerRadius="0,0,4,0"
+                                            Padding="8,4">
+                                        <TextBlock Text="{Binding SelectedPage.FilterType, StringFormat='Enhanced ({0})'}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource BrushAccent}"
+                                                   FontWeight="SemiBold" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <!-- Loading Progress Overlay -->
+                <Border Background="#99000000"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch">
+                    <Border Background="{StaticResource BrushBgCard}"
+                            BorderBrush="{StaticResource BrushAccent}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="24,16"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                        <StackPanel HorizontalAlignment="Center">
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="4"
+                                         Width="180"
+                                         Foreground="{StaticResource BrushAccent}"
+                                         Margin="0,0,0,12" />
+                            <TextBlock Text="{Binding StatusText}"
+                                       Foreground="{StaticResource BrushTextPrimary}"
+                                       FontSize="12"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </Border>
+            </Grid>
+
+            <!-- 3. RIGHT CONTROL & FILTER PANEL -->
+            <Border Grid.Column="2"
+                    Background="{StaticResource BrushBgSidebar}"
+                    BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="1,0,0,0"
+                    IsEnabled="{Binding HasPages}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="14">
+                    <StackPanel>
+                        <!-- Section: Presets -->
+                        <TextBlock Text="DOCUMENT PRESETS"
+                                   FontWeight="SemiBold"
+                                   FontSize="11"
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   Margin="0,0,0,10" />
+
+                        <RadioButton Style="{StaticResource PresetRadioButton}"
+                                     GroupName="FilterPreset"
+                                     IsChecked="{Binding ActiveFilterType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=EnhancedColor}"
+                                     Command="{Binding SetFilterCommand}"
+                                     CommandParameter="EnhancedColor">
+                            <StackPanel>
+                                <TextBlock Text="Enhanced Color" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" />
+                                <TextBlock Text="Illumination normalization: Shadow removal + crisp text + vivid color"
+                                           FontSize="10"
+                                           Foreground="{StaticResource BrushTextMuted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Style="{StaticResource PresetRadioButton}"
+                                     GroupName="FilterPreset"
+                                     IsChecked="{Binding ActiveFilterType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=BlackAndWhite}"
+                                     Command="{Binding SetFilterCommand}"
+                                     CommandParameter="BlackAndWhite">
+                            <StackPanel>
+                                <TextBlock Text="B&amp;W Clean Document" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" />
+                                <TextBlock Text="Pure white paper (#FFFFFF) &amp; deep black text binarization"
+                                           FontSize="10"
+                                           Foreground="{StaticResource BrushTextMuted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Style="{StaticResource PresetRadioButton}"
+                                     GroupName="FilterPreset"
+                                     IsChecked="{Binding ActiveFilterType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=GrayscaleHighContrast}"
+                                     Command="{Binding SetFilterCommand}"
+                                     CommandParameter="GrayscaleHighContrast">
+                            <StackPanel>
+                                <TextBlock Text="Grayscale High-Contrast" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" />
+                                <TextBlock Text="Adaptive histogram equalization for monochrome scans"
+                                           FontSize="10"
+                                           Foreground="{StaticResource BrushTextMuted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Style="{StaticResource PresetRadioButton}"
+                                     GroupName="FilterPreset"
+                                     IsChecked="{Binding ActiveFilterType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=SharpenOnly}"
+                                     Command="{Binding SetFilterCommand}"
+                                     CommandParameter="SharpenOnly">
+                            <StackPanel>
+                                <TextBlock Text="Detail Sharpening" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" />
+                                <TextBlock Text="High-pass text stroke edge enhancement"
+                                           FontSize="10"
+                                           Foreground="{StaticResource BrushTextMuted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Style="{StaticResource PresetRadioButton}"
+                                     GroupName="FilterPreset"
+                                     IsChecked="{Binding ActiveFilterType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=Original}"
+                                     Command="{Binding SetFilterCommand}"
+                                     CommandParameter="Original">
+                            <StackPanel>
+                                <TextBlock Text="Original (Unenhanced)" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" />
+                                <TextBlock Text="Raw perspective-warped document image"
+                                           FontSize="10"
+                                           Foreground="{StaticResource BrushTextMuted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <Separator Style="{x:Null}" Height="1" Background="{StaticResource BrushBorder}" Margin="0,12,0,14" />
+
+                        <!-- Section: Fine-Tuning Sliders -->
+                        <TextBlock Text="FINE-TUNING ADJUSTMENTS"
+                                   FontWeight="SemiBold"
+                                   FontSize="11"
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   Margin="0,0,0,10" />
+
+                        <!-- Shadow Suppression -->
+                        <DockPanel Margin="0,0,0,2">
+                            <TextBlock Text="Shadow Removal" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                            <TextBlock Text="{Binding ShadowSuppression, StringFormat='{}{0:P0}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushAccent}"
+                                       HorizontalAlignment="Right" />
+                        </DockPanel>
+                        <Slider Style="{StaticResource ModernSlider}"
+                                Minimum="0.0" Maximum="1.5"
+                                Value="{Binding ShadowSuppression, Mode=TwoWay}"
+                                ValueChanged="Slider_ValueChanged" />
+
+                        <!-- Sharpening -->
+                        <DockPanel Margin="0,0,0,2">
+                            <TextBlock Text="Text Sharpening" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                            <TextBlock Text="{Binding Sharpening, StringFormat='{}{0:F1}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushAccent}"
+                                       HorizontalAlignment="Right" />
+                        </DockPanel>
+                        <Slider Style="{StaticResource ModernSlider}"
+                                Minimum="0.0" Maximum="4.0"
+                                Value="{Binding Sharpening, Mode=TwoWay}"
+                                ValueChanged="Slider_ValueChanged" />
+
+                        <!-- Contrast -->
+                        <DockPanel Margin="0,0,0,2">
+                            <TextBlock Text="Contrast" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                            <TextBlock Text="{Binding Contrast, StringFormat='{}{0:F2}x'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushAccent}"
+                                       HorizontalAlignment="Right" />
+                        </DockPanel>
+                        <Slider Style="{StaticResource ModernSlider}"
+                                Minimum="0.5" Maximum="3.5"
+                                Value="{Binding Contrast, Mode=TwoWay}"
+                                ValueChanged="Slider_ValueChanged" />
+
+                        <!-- Brightness -->
+                        <DockPanel Margin="0,0,0,2">
+                            <TextBlock Text="Brightness" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                            <TextBlock Text="{Binding Brightness, StringFormat='{}{0:+0;-0;0}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushAccent}"
+                                       HorizontalAlignment="Right" />
+                        </DockPanel>
+                        <Slider Style="{StaticResource ModernSlider}"
+                                Minimum="-80" Maximum="80"
+                                Value="{Binding Brightness, Mode=TwoWay}"
+                                ValueChanged="Slider_ValueChanged" />
+
+                        <!-- B&W Threshold Offset -->
+                        <DockPanel Margin="0,0,0,2">
+                            <TextBlock Text="B&amp;W Threshold Tuning" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                            <TextBlock Text="{Binding ThresholdOffset, StringFormat='{}{0:+0;-0;0}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushAccent}"
+                                       HorizontalAlignment="Right" />
+                        </DockPanel>
+                        <Slider Style="{StaticResource ModernSlider}"
+                                Minimum="-30" Maximum="30"
+                                Value="{Binding ThresholdOffset, Mode=TwoWay}"
+                                ValueChanged="Slider_ValueChanged" />
+
+                        <Separator Style="{x:Null}" Height="1" Background="{StaticResource BrushBorder}" Margin="0,14,0,14" />
+
+                        <!-- Batch Actions -->
+                        <TextBlock Text="BATCH OPERATIONS"
+                                   FontWeight="SemiBold"
+                                   FontSize="11"
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   Margin="0,0,0,10" />
+
+                        <Button Style="{StaticResource ModernButton}"
+                                Command="{Binding BatchExportAllImagesAsyncCommand}"
+                                Margin="0,0,0,8">
+                            <TextBlock Text="📁 Export All Pages to Folder..." />
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- BOTTOM STATUS BAR -->
+        <Border Grid.Row="2"
+                Background="{StaticResource BrushBgHeader}"
+                BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="0,1,0,0"
+                Padding="12,4">
+            <DockPanel>
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="11"
+                           Foreground="{StaticResource BrushTextSecondary}"
+                           VerticalAlignment="Center" />
+
+                <TextBlock Text="{Binding DetailsText}"
+                           FontSize="11"
+                           Foreground="{StaticResource BrushTextMuted}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
