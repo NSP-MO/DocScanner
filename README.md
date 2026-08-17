@@ -80,13 +80,20 @@ cd DocScanner
 dotnet run -c Release
 ```
 
-### Publishing Standalone Binary
-To generate a self-contained, single-file executable:
+### Publishing Standalone Self-Contained Binary (Zero Dependencies)
+To bundle the full .NET 8 runtime, CoreCLR, and all native C++ libraries (`OpenCvSharpExtern.dll`) with zero external prerequisites:
 
 ```bash
-cd DocScanner
-dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
+dotnet publish DocScanner/DocScanner.csproj -c Release -r win-x64 --self-contained true -o ./publish /p:PublishSingleFile=false /p:IncludeNativeLibrariesForSelfExtract=true
 ```
+
+### Compiling Native Setup Installer (.exe)
+To compile the standalone Windows installer wizard using Inno Setup:
+
+```bash
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer/DocScanner_Setup.iss
+```
+The compiled installer is generated in `installer/output/DocScanner_Setup_v0.4.0_x64.exe`.
 
 ---
 
