@@ -64,8 +64,51 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private EnhancementFilterType _activeFilterType = EnhancementFilterType.EnhancedColor;
 
+    [ObservableProperty]
+    private bool _isSuccessDialogOpen;
+
+    [ObservableProperty]
+    private string _successDialogTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _successDialogMessage = string.Empty;
+
+    [ObservableProperty]
+    private string _lastExportedFilePath = string.Empty;
+
     public bool HasPages => Pages.Count > 0;
     public bool HasSelectedPage => SelectedPage != null;
+
+    public string ActivePresetTitle => ActiveFilterType switch
+    {
+        EnhancementFilterType.EnhancedColor => "FINE-TUNING (ENHANCED COLOR)",
+        EnhancementFilterType.BlackAndWhite => "FINE-TUNING (B&W CLEAN DOCUMENT)",
+        EnhancementFilterType.GrayscaleHighContrast => "FINE-TUNING (GRAYSCALE HIGH-CONTRAST)",
+        EnhancementFilterType.SharpenOnly => "FINE-TUNING (DETAIL SHARPENING)",
+        EnhancementFilterType.Original => "FINE-TUNING (ORIGINAL UNENHANCED)",
+        EnhancementFilterType.Custom => "FINE-TUNING (CUSTOM ADJUSTMENTS)",
+        _ => "FINE-TUNING CONTROLS"
+    };
+
+    public bool ShowShadowSlider => ActiveFilterType is EnhancementFilterType.EnhancedColor 
+        or EnhancementFilterType.BlackAndWhite 
+        or EnhancementFilterType.GrayscaleHighContrast 
+        or EnhancementFilterType.Custom;
+
+    public bool ShowSharpeningSlider => ActiveFilterType is EnhancementFilterType.EnhancedColor 
+        or EnhancementFilterType.GrayscaleHighContrast 
+        or EnhancementFilterType.SharpenOnly 
+        or EnhancementFilterType.Custom;
+
+    public bool ShowThresholdSlider => ActiveFilterType is EnhancementFilterType.BlackAndWhite 
+        or EnhancementFilterType.Custom;
+
+    public bool ShowDenoiseSlider => ActiveFilterType is EnhancementFilterType.BlackAndWhite 
+        or EnhancementFilterType.GrayscaleHighContrast 
+        or EnhancementFilterType.Custom;
+
+    public bool ShowContrastSlider => true;
+    public bool ShowBrightnessSlider => true;
 
     public MainViewModel(IImageProcessingService imageService, IPdfExportService pdfService)
     {
@@ -93,24 +136,27 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Sync slider states with selected page
-        _brightness = value.FilterParameters.Brightness;
-        _contrast = value.FilterParameters.Contrast;
-        _shadowSuppression = value.FilterParameters.ShadowSuppression;
-        _sharpening = value.FilterParameters.Sharpening;
-        _thresholdOffset = value.FilterParameters.BinarizationThresholdOffset;
-        _denoiseStrength = value.FilterParameters.DenoiseStrength;
         _activeFilterType = value.FilterType;
-
-        OnPropertyChanged(nameof(Brightness));
-        OnPropertyChanged(nameof(Contrast));
-        OnPropertyChanged(nameof(ShadowSuppression));
-        OnPropertyChanged(nameof(Sharpening));
-        OnPropertyChanged(nameof(ThresholdOffset));
-        OnPropertyChanged(nameof(DenoiseStrength));
         OnPropertyChanged(nameof(ActiveFilterType));
+        SyncFilterParametersToUI(value.FilterParameters);
 
         TriggerPageReprocess();
+    }
+
+    private void SyncFilterParametersToUI(FilterParameters p)
+    {
+        Brightness = p.Brightness;
+        Contrast = p.Contrast;
+        ShadowSuppression = p.ShadowSuppression;
+        Sharpening = p.Sharpening;
+        ThresholdOffset = p.BinarizationThresholdOffset;
+        DenoiseStrength = p.DenoiseStrength;
+
+        OnPropertyChanged(nameof(ActivePresetTitle));
+        OnPropertyChanged(nameof(ShowShadowSlider));
+        OnPropertyChanged(nameof(ShowSharpeningSlider));
+        OnPropertyChanged(nameof(ShowThresholdSlider));
+        OnPropertyChanged(nameof(ShowDenoiseSlider));
     }
 
     private void Dispatch(Action action)
@@ -396,18 +442,24 @@ public partial class MainViewModel : ObservableObject
         if (SelectedPage != null)
         {
             SelectedPage.FilterType = type;
-            if (type == EnhancementFilterType.EnhancedColor)
-            {
-                SelectedPage.FilterParameters.ShadowSuppression = 1.0;
-                SelectedPage.FilterParameters.Sharpening = 2.0;
-                SelectedPage.FilterParameters.Contrast = 2.0;
-
-                ShadowSuppression = 1.0;
-                Sharpening = 2.0;
-                Contrast = 2.0;
-            }
+            SyncFilterParametersToUI(SelectedPage.FilterParameters);
             TriggerPageReprocess();
         }
+        else
+        {
+            SyncFilterParametersToUI(FilterParameters.CreateDefault(type));
+        }
+    }
+
+    [RelayCommand]
+    private void ResetActivePreset()
+    {
+        if (SelectedPage == null) return;
+
+        SelectedPage.ResetFilterParametersToDefault(ActiveFilterType);
+        SyncFilterParametersToUI(SelectedPage.FilterParameters);
+        TriggerPageReprocess();
+        StatusText = $"Reset {ActiveFilterType} fine-tuning to default values.";
     }
 
     [RelayCommand]
@@ -532,7 +584,10 @@ public partial class MainViewModel : ObservableObject
                 });
 
                 StatusText = $"PDF successfully exported to: {Path.GetFileName(path)}";
-                MessageBox.Show($"PDF successfully exported to:\n{path}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+                LastExportedFilePath = path;
+                SuccessDialogTitle = "PDF Document Exported";
+                SuccessDialogMessage = $"Your document has been compiled and saved successfully:\n\n{path}";
+                IsSuccessDialogOpen = true;
             }
             catch (Exception ex)
             {
@@ -594,7 +649,10 @@ public partial class MainViewModel : ObservableObject
                 });
 
                 StatusText = $"Image exported to: {Path.GetFileName(path)}";
-                MessageBox.Show($"Image successfully saved to:\n{path}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+                LastExportedFilePath = path;
+                SuccessDialogTitle = "Image Exported";
+                SuccessDialogMessage = $"Your document page image has been saved successfully:\n\n{path}";
+                IsSuccessDialogOpen = true;
             }
             catch (Exception ex)
             {
@@ -645,8 +703,11 @@ public partial class MainViewModel : ObservableObject
                     }
                 });
 
-                StatusText = $"Successfully exported {Pages.Count} pages to {outDir}.";
-                MessageBox.Show($"Successfully exported {Pages.Count} pages to:\n{outDir}", "Batch Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+                StatusText = $"Successfully exported {Pages.Count} pages to {Path.GetFileName(outDir)}.";
+                LastExportedFilePath = outDir;
+                SuccessDialogTitle = "Batch Export Completed";
+                SuccessDialogMessage = $"Successfully exported {pagesSnapshot.Count} document pages to the directory:\n\n{outDir}";
+                IsSuccessDialogOpen = true;
             }
             catch (Exception ex)
             {
@@ -658,6 +719,61 @@ public partial class MainViewModel : ObservableObject
                 IsBusy = false;
             }
         }
+    }
+
+    [RelayCommand]
+    private void CloseSuccessDialog()
+    {
+        IsSuccessDialogOpen = false;
+    }
+
+    [RelayCommand]
+    private void OpenExportedFile()
+    {
+        if (!string.IsNullOrWhiteSpace(LastExportedFilePath) && File.Exists(LastExportedFilePath))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = LastExportedFilePath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to open file: {ex.Message}");
+            }
+        }
+        IsSuccessDialogOpen = false;
+    }
+
+    [RelayCommand]
+    private void OpenExportedFolder()
+    {
+        if (!string.IsNullOrWhiteSpace(LastExportedFilePath))
+        {
+            try
+            {
+                string target = File.Exists(LastExportedFilePath) ? LastExportedFilePath : (Directory.Exists(LastExportedFilePath) ? LastExportedFilePath : string.Empty);
+                if (!string.IsNullOrWhiteSpace(target))
+                {
+                    if (File.Exists(target))
+                    {
+                        Process.Start("explorer.exe", $"/select,\"{target}\"");
+                    }
+                    else
+                    {
+                        Process.Start("explorer.exe", $"\"{target}\"");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to open folder: {ex.Message}");
+            }
+        }
+        IsSuccessDialogOpen = false;
     }
 
     private void RenumberPages()

@@ -587,76 +587,114 @@
                         <Separator Style="{x:Null}" Height="1" Background="{StaticResource BrushBorder}" Margin="0,12,0,14" />
 
                         <!-- Section: Fine-Tuning Sliders -->
-                        <TextBlock Text="FINE-TUNING ADJUSTMENTS"
-                                   FontWeight="SemiBold"
-                                   FontSize="11"
-                                   Foreground="{StaticResource BrushTextMuted}"
-                                   Margin="0,0,0,10" />
-
-                        <!-- Shadow Suppression -->
-                        <DockPanel Margin="0,0,0,2">
-                            <TextBlock Text="Shadow Removal" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
-                            <TextBlock Text="{Binding ShadowSuppression, StringFormat='{}{0:P0}'}"
+                        <DockPanel Margin="0,0,0,10">
+                            <TextBlock Text="FINE-TUNING ADJUSTMENTS"
+                                       FontWeight="SemiBold"
                                        FontSize="11"
-                                       Foreground="{StaticResource BrushAccent}"
-                                       HorizontalAlignment="Right" />
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       VerticalAlignment="Center" />
+                            
+                            <Button Style="{StaticResource ModernButton}"
+                                    Command="{Binding ResetActivePresetCommand}"
+                                    ToolTip="Reset current preset settings to default"
+                                    HorizontalAlignment="Right"
+                                    Padding="6,2"
+                                    FontSize="10">
+                                <TextBlock Text="↺ Reset" />
+                            </Button>
                         </DockPanel>
-                        <Slider Style="{StaticResource ModernSlider}"
-                                Minimum="0.0" Maximum="1.5"
-                                Value="{Binding ShadowSuppression, Mode=TwoWay}"
-                                ValueChanged="Slider_ValueChanged" />
 
-                        <!-- Sharpening -->
-                        <DockPanel Margin="0,0,0,2">
-                            <TextBlock Text="Text Sharpening" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
-                            <TextBlock Text="{Binding Sharpening, StringFormat='{}{0:F1}'}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource BrushAccent}"
-                                       HorizontalAlignment="Right" />
-                        </DockPanel>
-                        <Slider Style="{StaticResource ModernSlider}"
-                                Minimum="0.0" Maximum="4.0"
-                                Value="{Binding Sharpening, Mode=TwoWay}"
-                                ValueChanged="Slider_ValueChanged" />
+                        <!-- Shadow Suppression Slider -->
+                        <StackPanel Visibility="{Binding ShowShadowSlider, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel Margin="0,0,0,2">
+                                <TextBlock Text="Shadow Removal" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                                <TextBlock Text="{Binding ShadowSuppression, StringFormat='{}{0:P0}'}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource BrushAccent}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <Slider Style="{StaticResource ModernSlider}"
+                                    Minimum="0.0" Maximum="1.5"
+                                    Value="{Binding ShadowSuppression, Mode=TwoWay}"
+                                    ValueChanged="Slider_ValueChanged" />
+                        </StackPanel>
 
-                        <!-- Contrast -->
-                        <DockPanel Margin="0,0,0,2">
-                            <TextBlock Text="Contrast" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
-                            <TextBlock Text="{Binding Contrast, StringFormat='{}{0:F2}x'}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource BrushAccent}"
-                                       HorizontalAlignment="Right" />
-                        </DockPanel>
-                        <Slider Style="{StaticResource ModernSlider}"
-                                Minimum="0.5" Maximum="3.5"
-                                Value="{Binding Contrast, Mode=TwoWay}"
-                                ValueChanged="Slider_ValueChanged" />
+                        <!-- Sharpening Slider -->
+                        <StackPanel Visibility="{Binding ShowSharpeningSlider, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel Margin="0,0,0,2">
+                                <TextBlock Text="Text Sharpening" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                                <TextBlock Text="{Binding Sharpening, StringFormat='{}{0:F1}'}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource BrushAccent}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <Slider Style="{StaticResource ModernSlider}"
+                                    Minimum="0.0" Maximum="4.0"
+                                    Value="{Binding Sharpening, Mode=TwoWay}"
+                                    ValueChanged="Slider_ValueChanged" />
+                        </StackPanel>
 
-                        <!-- Brightness -->
-                        <DockPanel Margin="0,0,0,2">
-                            <TextBlock Text="Brightness" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
-                            <TextBlock Text="{Binding Brightness, StringFormat='{}{0:+0;-0;0}'}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource BrushAccent}"
-                                       HorizontalAlignment="Right" />
-                        </DockPanel>
-                        <Slider Style="{StaticResource ModernSlider}"
-                                Minimum="-80" Maximum="80"
-                                Value="{Binding Brightness, Mode=TwoWay}"
-                                ValueChanged="Slider_ValueChanged" />
+                        <!-- Contrast Slider -->
+                        <StackPanel Visibility="{Binding ShowContrastSlider, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel Margin="0,0,0,2">
+                                <TextBlock Text="Contrast" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                                <TextBlock Text="{Binding Contrast, StringFormat='{}{0:F2}x'}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource BrushAccent}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <Slider Style="{StaticResource ModernSlider}"
+                                    Minimum="0.5" Maximum="3.5"
+                                    Value="{Binding Contrast, Mode=TwoWay}"
+                                    ValueChanged="Slider_ValueChanged" />
+                        </StackPanel>
 
-                        <!-- B&W Threshold Offset -->
-                        <DockPanel Margin="0,0,0,2">
-                            <TextBlock Text="B&amp;W Threshold Tuning" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
-                            <TextBlock Text="{Binding ThresholdOffset, StringFormat='{}{0:+0;-0;0}'}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource BrushAccent}"
-                                       HorizontalAlignment="Right" />
-                        </DockPanel>
-                        <Slider Style="{StaticResource ModernSlider}"
-                                Minimum="-30" Maximum="30"
-                                Value="{Binding ThresholdOffset, Mode=TwoWay}"
-                                ValueChanged="Slider_ValueChanged" />
+                        <!-- Brightness Slider -->
+                        <StackPanel Visibility="{Binding ShowBrightnessSlider, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel Margin="0,0,0,2">
+                                <TextBlock Text="Brightness" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                                <TextBlock Text="{Binding Brightness, StringFormat='{}{0:+0;-0;0}'}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource BrushAccent}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <Slider Style="{StaticResource ModernSlider}"
+                                    Minimum="-80" Maximum="80"
+                                    Value="{Binding Brightness, Mode=TwoWay}"
+                                    ValueChanged="Slider_ValueChanged" />
+                        </StackPanel>
+
+                        <!-- B&W Threshold Offset Slider -->
+                        <StackPanel Visibility="{Binding ShowThresholdSlider, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel Margin="0,0,0,2">
+                                <TextBlock Text="B&amp;W Threshold Tuning" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                                <TextBlock Text="{Binding ThresholdOffset, StringFormat='{}{0:+0;-0;0}'}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource BrushAccent}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <Slider Style="{StaticResource ModernSlider}"
+                                    Minimum="-30" Maximum="30"
+                                    Value="{Binding ThresholdOffset, Mode=TwoWay}"
+                                    ValueChanged="Slider_ValueChanged" />
+                        </StackPanel>
+
+                        <!-- Denoise Cleanup Slider -->
+                        <StackPanel Visibility="{Binding ShowDenoiseSlider, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel Margin="0,0,0,2">
+                                <TextBlock Text="Noise Reduction" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" />
+                                <TextBlock Text="{Binding DenoiseStrength}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource BrushAccent}"
+                                           HorizontalAlignment="Right" />
+                            </DockPanel>
+                            <Slider Style="{StaticResource ModernSlider}"
+                                    Minimum="0" Maximum="4"
+                                    IsSnapToTickEnabled="True"
+                                    TickFrequency="1"
+                                    Value="{Binding DenoiseStrength, Mode=TwoWay}"
+                                    ValueChanged="Slider_ValueChanged" />
+                        </StackPanel>
 
                         <Separator Style="{x:Null}" Height="1" Background="{StaticResource BrushBorder}" Margin="0,14,0,14" />
 
@@ -695,6 +733,59 @@
                            HorizontalAlignment="Right"
                            VerticalAlignment="Center" />
             </DockPanel>
+        </Border>
+
+        <!-- GLOBAL IN-APP SUCCESS MODAL DIALOG (STAYS OPEN UNTIL DISMISSED BY USER) -->
+        <Border Grid.Row="0" Grid.RowSpan="3"
+                Background="#b3000000"
+                Visibility="{Binding IsSuccessDialogOpen, Converter={StaticResource BoolToVisConverter}}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Panel.ZIndex="1000">
+            <Border Background="{StaticResource BrushBgSidebar}"
+                    BorderBrush="{StaticResource BrushAccent}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="24"
+                    MaxWidth="520"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <TextBlock Text="{Binding SuccessDialogTitle}"
+                                   FontWeight="Bold"
+                                   FontSize="15"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <TextBlock Text="{Binding SuccessDialogMessage}"
+                               Foreground="{StaticResource BrushTextSecondary}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,24" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource ModernButton}"
+                                Command="{Binding OpenExportedFolderCommand}"
+                                Margin="0,0,8,0"
+                                Padding="12,6">
+                            <TextBlock Text="📁 Open Folder" />
+                        </Button>
+                        <Button Style="{StaticResource AccentButton}"
+                                Command="{Binding OpenExportedFileCommand}"
+                                Margin="0,0,8,0"
+                                Padding="12,6">
+                            <TextBlock Text="📄 Open File" />
+                        </Button>
+                        <Button Style="{StaticResource ModernButton}"
+                                Command="{Binding CloseSuccessDialogCommand}"
+                                Padding="16,6">
+                            <TextBlock Text="OK" />
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </Border>
     </Grid>
 </Window>

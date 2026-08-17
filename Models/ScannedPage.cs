@@ -23,6 +23,16 @@ public class ScannedPage : INotifyPropertyChanged, IDisposable
     private string _statusMessage = string.Empty;
     private string _dimensionsText = string.Empty;
 
+    private readonly Dictionary<EnhancementFilterType, FilterParameters> _presetParameters = new()
+    {
+        [EnhancementFilterType.Original] = FilterParameters.CreateDefault(EnhancementFilterType.Original),
+        [EnhancementFilterType.EnhancedColor] = FilterParameters.CreateDefault(EnhancementFilterType.EnhancedColor),
+        [EnhancementFilterType.BlackAndWhite] = FilterParameters.CreateDefault(EnhancementFilterType.BlackAndWhite),
+        [EnhancementFilterType.GrayscaleHighContrast] = FilterParameters.CreateDefault(EnhancementFilterType.GrayscaleHighContrast),
+        [EnhancementFilterType.SharpenOnly] = FilterParameters.CreateDefault(EnhancementFilterType.SharpenOnly),
+        [EnhancementFilterType.Custom] = FilterParameters.CreateDefault(EnhancementFilterType.Custom)
+    };
+
     public Guid Id { get; } = Guid.NewGuid();
     public string? SourceFilePath { get; set; }
 
@@ -52,13 +62,44 @@ public class ScannedPage : INotifyPropertyChanged, IDisposable
     public EnhancementFilterType FilterType
     {
         get => _filterType;
-        set => SetField(ref _filterType, value);
+        set
+        {
+            if (SetField(ref _filterType, value))
+            {
+                FilterParameters = GetParametersForFilter(value);
+            }
+        }
     }
 
     public FilterParameters FilterParameters
     {
         get => _filterParameters;
         set => SetField(ref _filterParameters, value);
+    }
+
+    /// <summary>
+    /// Gets the dedicated fine-tuning parameter set for a given filter preset.
+    /// </summary>
+    public FilterParameters GetParametersForFilter(EnhancementFilterType type)
+    {
+        if (!_presetParameters.TryGetValue(type, out var p))
+        {
+            p = FilterParameters.CreateDefault(type);
+            _presetParameters[type] = p;
+        }
+        return p;
+    }
+
+    /// <summary>
+    /// Resets the parameters of the specified filter type back to its factory default.
+    /// </summary>
+    public void ResetFilterParametersToDefault(EnhancementFilterType type)
+    {
+        _presetParameters[type] = FilterParameters.CreateDefault(type);
+        if (FilterType == type)
+        {
+            FilterParameters = _presetParameters[type];
+        }
     }
 
     public int ImageWidth => RawImage?.Width ?? (SourceBitmap?.PixelWidth ?? 100);
