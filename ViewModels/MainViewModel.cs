@@ -203,6 +203,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     SelectedPage = Pages[0];
                 }
+                IsCropMode = true;
                 OnPropertyChanged(nameof(HasPages));
                 OnPropertyChanged(nameof(HasSelectedPage));
             });
@@ -272,6 +273,7 @@ public partial class MainViewModel : ObservableObject
             Dispatch(() =>
             {
                 RenumberPages();
+                IsCropMode = true;
                 OnPropertyChanged(nameof(HasPages));
                 OnPropertyChanged(nameof(HasSelectedPage));
             });
@@ -522,12 +524,15 @@ public partial class MainViewModel : ObservableObject
             try
             {
                 string path = saveDialog.FileName;
+                var pagesSnapshot = Pages.ToList();
+
                 await Task.Run(() =>
                 {
-                    _pdfService.ExportToPdf(Pages, path, _imageService, quality: 92, fitToA4: true);
+                    _pdfService.ExportToPdf(pagesSnapshot, path, _imageService, quality: 92, fitToA4: true);
                 });
 
                 StatusText = $"PDF successfully exported to: {Path.GetFileName(path)}";
+                MessageBox.Show($"PDF successfully exported to:\n{path}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -566,21 +571,35 @@ public partial class MainViewModel : ObservableObject
             {
                 string path = saveDialog.FileName;
                 ScannedPage page = SelectedPage;
+                Mat raw = page.RawImage.Clone();
+                int rot = page.RotationAngle;
+                DocumentCorners corners = page.Corners.Clone();
+                EnhancementFilterType filter = page.FilterType;
+                FilterParameters parameters = page.FilterParameters.Clone();
 
                 await Task.Run(() =>
                 {
-                    using Mat rotated = _imageService.RotateImage(page.RawImage, page.RotationAngle);
-                    using Mat warped = _imageService.WarpPerspective(rotated, page.Corners);
-                    using Mat enhanced = _imageService.EnhanceDocument(warped, page.FilterType, page.FilterParameters);
+                    try
+                    {
+                        using Mat rotated = _imageService.RotateImage(raw, rot);
+                        using Mat warped = _imageService.WarpPerspective(rotated, corners);
+                        using Mat enhanced = _imageService.EnhanceDocument(warped, filter, parameters);
 
-                    _imageService.SaveImage(enhanced, path);
+                        _imageService.SaveImage(enhanced, path);
+                    }
+                    finally
+                    {
+                        raw.Dispose();
+                    }
                 });
 
                 StatusText = $"Image exported to: {Path.GetFileName(path)}";
+                MessageBox.Show($"Image successfully saved to:\n{path}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 StatusText = $"Export error: {ex.Message}";
+                MessageBox.Show($"Failed to export image: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -607,10 +626,12 @@ public partial class MainViewModel : ObservableObject
 
             try
             {
+                var pagesSnapshot = Pages.ToList();
+
                 await Task.Run(() =>
                 {
                     int i = 1;
-                    foreach (ScannedPage page in Pages)
+                    foreach (ScannedPage page in pagesSnapshot)
                     {
                         if (page.RawImage == null) continue;
 
@@ -624,11 +645,13 @@ public partial class MainViewModel : ObservableObject
                     }
                 });
 
-                StatusText = $"Successfully exported {Pages.Count} pages.";
+                StatusText = $"Successfully exported {Pages.Count} pages to {outDir}.";
+                MessageBox.Show($"Successfully exported {Pages.Count} pages to:\n{outDir}", "Batch Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 StatusText = $"Batch export error: {ex.Message}";
+                MessageBox.Show($"Failed to batch export: {ex.Message}", "Batch Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {

@@ -46,7 +46,7 @@ public class ImageProcessingService : IImageProcessingService
         int origWidth = sourceImage.Width;
         int origHeight = sourceImage.Height;
 
-        // Scale down for rapid contour analysis while preserving aspect ratio
+        // Scale down for rapid analysis
         double targetScale = Math.Min(1.0, 900.0 / Math.Max(origWidth, origHeight));
         int workingWidth = (int)Math.Round(origWidth * targetScale);
         int workingHeight = (int)Math.Round(origHeight * targetScale);
@@ -64,62 +64,55 @@ public class ImageProcessingService : IImageProcessingService
         using Mat gray = new Mat();
         Cv2.CvtColor(resized, gray, ColorConversionCodes.BGR2GRAY);
 
-        // Pre-filter with bilateral or Gaussian blur to eliminate texture noise
-        using Mat blurred = new Mat();
-        Cv2.GaussianBlur(gray, blurred, new OpenCvSharp.Size(5, 5), 0);
+        // 1. Lightweight OCR / Text Saliency: Detect text and glyph regions
+        List<Point2f> textPoints = ExtractTextRegionPoints(gray, targetScale, origWidth, origHeight, workingWidth, workingHeight);
 
-        // Edge detection with morphological closing to bridge gaps
-        using Mat edges = new Mat();
-        Cv2.Canny(blurred, edges, 40, 150);
+        // 2. Extract Candidate Paper Quadrilaterals via Multi-Threshold Geometric Contours
+        List<Point2f[]> candidateQuads = FindCandidatePaperQuads(gray, targetScale, workingWidth, workingHeight);
 
-        using Mat kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(5, 5));
-        using Mat closedEdges = new Mat();
-        Cv2.MorphologyEx(edges, closedEdges, MorphTypes.Close, kernel);
-
-        Cv2.FindContours(closedEdges, out Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
-
-        double totalArea = workingWidth * workingHeight;
-        double minDocArea = totalArea * 0.10; // At least 10% of total image area
-
-        Point2f[]? bestQuad = null;
-        double maxQuadArea = 0;
-
-        foreach (Point[] contour in contours.OrderByDescending(c => Cv2.ContourArea(c)))
+        // 3. Hybrid Fusion: Evaluate candidate paper quads against text envelope
+        if (textPoints.Count >= 4)
         {
-            double area = Cv2.ContourArea(contour);
-            if (area < minDocArea) break;
+            Point2f[]? bestTextValidatedQuad = null;
+            double bestScore = -1.0;
 
-            Point[] hull = Cv2.ConvexHull(contour);
-            double perimeter = Cv2.ArcLength(hull, true);
-
-            // Approximate polygon with adaptive epsilon
-            for (double epsFactor = 0.015; epsFactor <= 0.045; epsFactor += 0.01)
+            foreach (Point2f[] quad in candidateQuads)
             {
-                Point[] approx = Cv2.ApproxPolyDP(hull, epsFactor * perimeter, true);
-                if (approx.Length == 4 && Cv2.IsContourConvex(approx))
+                double containment = CalculatePointContainmentRatio(quad, textPoints);
+                if (containment >= 0.80) // At least 80% of text blocks enclosed
                 {
-                    double quadArea = Cv2.ContourArea(approx);
-                    if (quadArea > maxQuadArea)
+                    double quadArea = Math.Abs(Cv2.ContourArea(quad.Select(p => new Point((int)p.X, (int)p.Y)).ToArray()));
+                    double totalArea = (double)origWidth * origHeight;
+                    // Score favors higher containment with natural document size
+                    double score = (containment * 1000.0) - Math.Abs((quadArea / totalArea) - 0.70) * 100.0;
+                    if (score > bestScore)
                     {
-                        maxQuadArea = quadArea;
-                        bestQuad = approx.Select(p => new Point2f((float)(p.X / targetScale), (float)(p.Y / targetScale))).ToArray();
+                        bestScore = score;
+                        bestTextValidatedQuad = quad;
                     }
-                    break;
                 }
             }
 
-            if (bestQuad != null && maxQuadArea > totalArea * 0.40)
+            if (bestTextValidatedQuad != null)
             {
-                break;
+                return SortCornersClockwise(bestTextValidatedQuad);
+            }
+
+            // If no geometric contour cleanly contained text, compute envelope directly from text layout
+            Point2f[]? textEnvelope = ComputeTextEnvelopeQuad(textPoints, origWidth, origHeight);
+            if (textEnvelope != null && textEnvelope.Length == 4)
+            {
+                return SortCornersClockwise(textEnvelope);
             }
         }
 
-        if (bestQuad != null && bestQuad.Length == 4)
+        // 4. Fallback to best geometric quad if no text detected
+        if (candidateQuads.Count > 0)
         {
-            return SortCornersClockwise(bestQuad);
+            return SortCornersClockwise(candidateQuads[0]);
         }
 
-        // Fallback: 5% inner border of source image
+        // 5. Default fallback: 4% inner border of source image
         float marginX = origWidth * 0.04f;
         float marginY = origHeight * 0.04f;
         return new DocumentCorners(
@@ -128,6 +121,176 @@ public class ImageProcessingService : IImageProcessingService
             new Point2f(origWidth - marginX, origHeight - marginY),
             new Point2f(marginX, origHeight - marginY)
         );
+    }
+
+    /// <summary>
+    /// Lightweight OCR / text saliency detector.
+    /// Extracts character and line bounding vertices to accurately locate document content.
+    /// </summary>
+    private List<Point2f> ExtractTextRegionPoints(Mat gray, double targetScale, int origWidth, int origHeight, int workWidth, int workHeight)
+    {
+        List<Point2f> points = new List<Point2f>();
+
+        // High-pass vertical gradient for character stroke detection
+        using Mat gradX = new Mat();
+        Cv2.Sobel(gray, gradX, MatType.CV_32F, 1, 0, 3);
+
+        using Mat absGradX = new Mat();
+        Cv2.ConvertScaleAbs(gradX, absGradX);
+
+        using Mat blurred = new Mat();
+        Cv2.GaussianBlur(absGradX, blurred, new OpenCvSharp.Size(5, 5), 0);
+
+        using Mat thresh = new Mat();
+        Cv2.Threshold(blurred, thresh, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+
+        // Horizontal structuring element to bridge words into cohesive text lines
+        int kernelW = Math.Max(12, (int)(workWidth * 0.035));
+        using Mat lineKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(kernelW, 3));
+        using Mat connected = new Mat();
+        Cv2.MorphologyEx(thresh, connected, MorphTypes.Close, lineKernel);
+
+        Cv2.FindContours(connected, out Point[][] textContours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+        double minArea = (workWidth * workHeight) * 0.0001;
+        double maxArea = (workWidth * workHeight) * 0.40;
+        double invScale = 1.0 / targetScale;
+
+        foreach (Point[] cnt in textContours)
+        {
+            double area = Cv2.ContourArea(cnt);
+            if (area < minArea || area > maxArea) continue;
+
+            OpenCvSharp.Rect bRect = Cv2.BoundingRect(cnt);
+            double aspect = (double)bRect.Width / Math.Max(1, bRect.Height);
+
+            if (aspect > 0.6 && bRect.Height < workHeight * 0.28 && bRect.Width >= 8)
+            {
+                float x1 = (float)(bRect.X * invScale);
+                float y1 = (float)(bRect.Y * invScale);
+                float x2 = (float)((bRect.X + bRect.Width) * invScale);
+                float y2 = (float)((bRect.Y + bRect.Height) * invScale);
+
+                points.Add(new Point2f(x1, y1));
+                points.Add(new Point2f(x2, y1));
+                points.Add(new Point2f(x2, y2));
+                points.Add(new Point2f(x1, y2));
+            }
+        }
+
+        return points;
+    }
+
+    /// <summary>
+    /// Multi-threshold candidate paper quadrilateral extractor.
+    /// </summary>
+    private List<Point2f[]> FindCandidatePaperQuads(Mat gray, double targetScale, int workWidth, int workHeight)
+    {
+        List<Point2f[]> quads = new List<Point2f[]>();
+        double totalArea = workWidth * workHeight;
+        double minDocArea = totalArea * 0.10;
+        double invScale = 1.0 / targetScale;
+
+        int[][] thresholds = new[]
+        {
+            new[] { 35, 120 },
+            new[] { 50, 160 },
+            new[] { 20, 80 }
+        };
+
+        using Mat blurred = new Mat();
+        Cv2.GaussianBlur(gray, blurred, new OpenCvSharp.Size(5, 5), 0);
+
+        foreach (int[] th in thresholds)
+        {
+            using Mat edges = new Mat();
+            Cv2.Canny(blurred, edges, th[0], th[1]);
+
+            using Mat kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(5, 5));
+            using Mat closedEdges = new Mat();
+            Cv2.MorphologyEx(edges, closedEdges, MorphTypes.Close, kernel);
+
+            Cv2.FindContours(closedEdges, out Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            foreach (Point[] contour in contours.OrderByDescending(c => Cv2.ContourArea(c)))
+            {
+                double area = Cv2.ContourArea(contour);
+                if (area < minDocArea) break;
+
+                Point[] hull = Cv2.ConvexHull(contour);
+                double perimeter = Cv2.ArcLength(hull, true);
+
+                for (double epsFactor = 0.015; epsFactor <= 0.045; epsFactor += 0.01)
+                {
+                    Point[] approx = Cv2.ApproxPolyDP(hull, epsFactor * perimeter, true);
+                    if (approx.Length == 4 && Cv2.IsContourConvex(approx))
+                    {
+                        Point2f[] quad = approx.Select(p => new Point2f((float)(p.X * invScale), (float)(p.Y * invScale))).ToArray();
+                        quads.Add(quad);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return quads;
+    }
+
+    /// <summary>
+    /// Computes the ratio of text points enclosed inside a candidate quadrilateral.
+    /// </summary>
+    private double CalculatePointContainmentRatio(Point2f[] quad, List<Point2f> points)
+    {
+        if (points.Count == 0) return 0.0;
+
+        Point2f[] ordered = SortCornersClockwise(quad).ToArray();
+        Point[] contour = ordered.Select(p => new Point((int)p.X, (int)p.Y)).ToArray();
+
+        int insideCount = 0;
+        foreach (Point2f pt in points)
+        {
+            double dist = Cv2.PointPolygonTest(contour, new Point2f(pt.X, pt.Y), measureDist: false);
+            if (dist >= 0)
+            {
+                insideCount++;
+            }
+        }
+
+        return (double)insideCount / points.Count;
+    }
+
+    /// <summary>
+    /// Constructs an optimal document quadrilateral from text points with natural page margins.
+    /// </summary>
+    private Point2f[]? ComputeTextEnvelopeQuad(List<Point2f> textPoints, int origWidth, int origHeight)
+    {
+        if (textPoints.Count < 4) return null;
+
+        RotatedRect minRect = Cv2.MinAreaRect(textPoints.ToArray());
+        float rectW = minRect.Size.Width;
+        float rectH = minRect.Size.Height;
+        float angle = minRect.Angle;
+
+        // Standard page margin padding (12% horizontal margin, 15% vertical margin)
+        float marginX = rectW * 0.12f;
+        float marginY = rectH * 0.15f;
+
+        float expandedW = Math.Min(origWidth, rectW + (marginX * 2));
+        float expandedH = Math.Min(origHeight, rectH + (marginY * 2));
+
+        RotatedRect expandedRect = new RotatedRect(minRect.Center, new Size2f(expandedW, expandedH), angle);
+        Point2f[] boxPts = expandedRect.Points();
+
+        // Clamp points to image dimensions
+        for (int i = 0; i < boxPts.Length; i++)
+        {
+            boxPts[i] = new Point2f(
+                Math.Clamp(boxPts[i].X, 0f, (float)origWidth),
+                Math.Clamp(boxPts[i].Y, 0f, (float)origHeight)
+            );
+        }
+
+        return boxPts;
     }
 
     public Mat WarpPerspective(Mat sourceImage, DocumentCorners corners)

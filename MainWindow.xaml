@@ -164,7 +164,7 @@
                 <!-- Right: Export Operations -->
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                     <Button Style="{StaticResource ModernButton}"
-                            Command="{Binding ExportCurrentPageImageAsyncCommand}"
+                            Command="{Binding ExportCurrentPageImageCommand}"
                             IsEnabled="{Binding HasPages}"
                             ToolTip="Save current enhanced page as PNG/JPEG image"
                             Margin="0,0,8,0">
@@ -172,7 +172,7 @@
                     </Button>
 
                     <Button Style="{StaticResource AccentButton}"
-                            Command="{Binding ExportPdfAsyncCommand}"
+                            Command="{Binding ExportPdfCommand}"
                             IsEnabled="{Binding HasPages}"
                             ToolTip="Compile all pages into a multi-page PDF document"
                             Padding="14,6">
@@ -668,7 +668,7 @@
                                    Margin="0,0,0,10" />
 
                         <Button Style="{StaticResource ModernButton}"
-                                Command="{Binding BatchExportAllImagesAsyncCommand}"
+                                Command="{Binding BatchExportAllImagesCommand}"
                                 Margin="0,0,0,8">
                             <TextBlock Text="📁 Export All Pages to Folder..." />
                         </Button>

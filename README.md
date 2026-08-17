@@ -41,9 +41,10 @@ The application is structured around a modular MVVM architecture coupled with hi
 - **Detail Sharpening**: High-frequency edge boosting for soft-focus or motion-blurred captures.
 - **Custom Mode**: Real-time slider controls for Shadow Suppression, Contrast, Brightness, Sharpening, and Binarization Threshold.
 
-### 3. Interactive 4-Point Perspective Correction
-- Vector-based interactive WPF overlay (`InteractiveCropCanvas`) with draggable corner handles, midpoint edge sliders, and dimmed boundary masks.
-- Automatic boundary detection with manual adjustment capability.
+### 3. Lightweight OCR Text-Aware & Perspective Crop
+- **Lightweight OCR Text Saliency**: High-speed morphological character stroke detection (Sobel + Otsu + horizontal kernel bridging) that accurately identifies the bounding envelope of text lines, signatures, and printed paragraphs.
+- **Hybrid Boundary Fusion**: Validates paper candidate contours against text containment (>80%) to avoid cropping into text or capturing extraneous desk background.
+- **Interactive 4-Point Quadrilateral Manipulation**: Vector-based WPF overlay (`InteractiveCropCanvas`) with draggable corner handles, midpoint edge sliders, and dimmed boundary masks.
 
 ### 4. Multi-Page Document Management & PDF Export
 - Thumbnail sidebar for page reordering (Move Up, Move Down, Delete).
