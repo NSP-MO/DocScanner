@@ -118,7 +118,7 @@ DocScanner/
 │   ├── IPdfExportService.cs        # PDF export service contract
 │   └── PdfExportService.cs         # PdfSharp multi-page document compiler
 ├── Themes/
-│   └── DarkTheme.xaml              # VS Code Dark Modern (#1f1f1f) theme dictionary
+│   └── DarkTheme.xaml              # Dark Modern (#1f1f1f) theme dictionary
 ├── ViewModels/
 │   └── MainViewModel.cs            # MVVM ViewModel with reactive debounced processing
 ├── App.xaml / App.xaml.cs          # Application entry point
