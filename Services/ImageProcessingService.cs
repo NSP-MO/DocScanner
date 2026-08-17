@@ -10,7 +10,7 @@ namespace DocScanner.Services;
 
 /// <summary>
 /// Digital image processing and computer vision service for document scanning.
-/// Implements perspective correction, illumination normalization, and CamScanner-grade contrast filters.
+/// Implements perspective correction, illumination normalization, and high-contrast optical enhancement filters.
 /// </summary>
 public class ImageProcessingService : IImageProcessingService
 {

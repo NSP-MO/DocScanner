@@ -1,6 +1,6 @@
 # DocScanner - High-Performance Document Scanning & Contrast Enhancement
 
-DocScanner is a modern Windows desktop application built with .NET 8 WPF and OpenCvSharp4. It provides mobile-grade document scanning capabilities—including perspective unwarping, illumination normalization (shadow elimination), high-contrast CamScanner-style enhancement filters, and multi-page PDF compilation.
+DocScanner is a modern Windows desktop application built with .NET 8 WPF and OpenCvSharp4. It provides professional document scanning capabilities—including perspective unwarping, illumination normalization (shadow elimination), high-contrast optical enhancement filters, and multi-page PDF compilation.
 
 ---
 
